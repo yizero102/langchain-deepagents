@@ -265,4 +265,114 @@ public class CompositeBackendTest {
         List<String> paths2 = listing2.stream().map(FileInfo::getPath).collect(java.util.stream.Collectors.toList());
         assertEquals(paths1, paths2);
     }
+    
+    @Test
+    public void testEditStringNotFound() {
+        compositeBackend.write("/test.txt", "hello world");
+        EditResult result = compositeBackend.edit("/test.txt", "nonexistent", "new", false);
+        assertFalse(result.isSuccess());
+        assertTrue(result.getError().contains("String not found"));
+    }
+    
+    @Test
+    public void testEditMultipleOccurrences() {
+        compositeBackend.write("/test.txt", "foo bar foo");
+        EditResult result = compositeBackend.edit("/test.txt", "foo", "baz", false);
+        assertFalse(result.isSuccess());
+        assertTrue(result.getError().contains("appears 2 times"));
+    }
+    
+    @Test
+    public void testEditReplaceAll() {
+        compositeBackend.write("/test.txt", "foo bar foo");
+        EditResult result = compositeBackend.edit("/test.txt", "foo", "baz", true);
+        assertTrue(result.isSuccess());
+        assertEquals(2, result.getOccurrences());
+        
+        String content = compositeBackend.read("/test.txt");
+        assertTrue(content.contains("baz bar baz"));
+    }
+    
+    @Test
+    public void testGrepInvalidRegex() {
+        compositeBackend.write("/file.txt", "test content");
+        
+        Object result = compositeBackend.grepRaw("[", "/", null);
+        assertTrue(result instanceof String);
+        assertTrue(((String) result).contains("Invalid regex"));
+    }
+    
+    @Test
+    public void testReadNonexistent() {
+        String content = compositeBackend.read("/nonexistent.txt");
+        assertTrue(content.contains("not found"));
+    }
+    
+    @Test
+    public void testWriteToRoutedPathErrors() {
+        compositeBackend.write("/memory/test.txt", "first");
+        WriteResult result = compositeBackend.write("/memory/test.txt", "second");
+        assertFalse(result.isSuccess());
+        assertTrue(result.getError().contains("already exists"));
+    }
+    
+    @Test
+    public void testDeepNestedInRoutedBackend() {
+        compositeBackend.write("/memory/a/b/c/d/file.txt", "deep");
+        
+        String content = compositeBackend.read("/memory/a/b/c/d/file.txt");
+        assertTrue(content.contains("deep"));
+        
+        List<FileInfo> infos = compositeBackend.lsInfo("/memory/a/");
+        assertTrue(infos.stream().anyMatch(fi -> fi.getPath().equals("/memory/a/b/")));
+    }
+    
+    @Test
+    public void testGlobAcrossMultipleRoutes() {
+        StateBackend archiveBackend = new StateBackend();
+        Map<String, BackendProtocol> routes = new HashMap<>();
+        routes.put("/memory/", memoryBackend);
+        routes.put("/archive/", archiveBackend);
+        
+        CompositeBackend multiBackend = new CompositeBackend(defaultBackend, routes);
+        
+        multiBackend.write("/file.txt", "default");
+        multiBackend.write("/memory/file.txt", "memory");
+        multiBackend.write("/archive/file.txt", "archive");
+        
+        List<FileInfo> infos = multiBackend.globInfo("*.txt", "/");
+        assertTrue(infos.size() >= 3);
+        
+        Set<String> paths = infos.stream()
+                .map(FileInfo::getPath)
+                .collect(java.util.stream.Collectors.toSet());
+        assertTrue(paths.contains("/file.txt"));
+        assertTrue(paths.contains("/memory/file.txt"));
+        assertTrue(paths.contains("/archive/file.txt"));
+    }
+    
+    @Test
+    public void testGrepSpecificRoute() {
+        compositeBackend.write("/default.txt", "hello default");
+        compositeBackend.write("/memory/memory.txt", "hello memory");
+        
+        // Grep only in memory route
+        Object result = compositeBackend.grepRaw("hello", "/memory/", null);
+        assertTrue(result instanceof List);
+        
+        @SuppressWarnings("unchecked")
+        List<GrepMatch> matches = (List<GrepMatch>) result;
+        assertEquals(1, matches.size());
+        assertEquals("/memory/memory.txt", matches.get(0).getPath());
+    }
+    
+    @Test
+    public void testUnicodeInComposite() {
+        String unicodeContent = "Hello 世界 🌍";
+        compositeBackend.write("/memory/unicode.txt", unicodeContent);
+        
+        String content = compositeBackend.read("/memory/unicode.txt");
+        assertTrue(content.contains("世界"));
+        assertTrue(content.contains("🌍"));
+    }
 }

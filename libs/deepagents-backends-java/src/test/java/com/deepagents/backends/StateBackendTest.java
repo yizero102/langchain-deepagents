@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -242,5 +243,119 @@ public class StateBackendTest {
         EditResult result = backend.edit("/missing.txt", "old", "new");
         assertFalse(result.isSuccess());
         assertTrue(result.getError().contains("not found"));
+    }
+    
+    @Test
+    public void testEditStringNotFound() {
+        backend.write("/test.txt", "hello world");
+        EditResult result = backend.edit("/test.txt", "nonexistent", "new", false);
+        assertFalse(result.isSuccess());
+        assertTrue(result.getError().contains("String not found"));
+    }
+    
+    @Test
+    public void testRecursiveGlob() {
+        backend.write("/test.txt", "content");
+        backend.write("/dir/test.md", "content");
+        backend.write("/dir/subdir/test.txt", "content");
+        
+        List<FileInfo> infos = backend.globInfo("**/*.txt", "/");
+        assertTrue(infos.size() >= 2);
+        
+        Set<String> paths = infos.stream()
+                .map(FileInfo::getPath)
+                .collect(java.util.stream.Collectors.toSet());
+        assertTrue(paths.contains("/test.txt"));
+        assertTrue(paths.contains("/dir/subdir/test.txt"));
+    }
+    
+    @Test
+    public void testGlobNoRecursion() {
+        backend.write("/test.txt", "content");
+        backend.write("/dir/test.txt", "content");
+        
+        // Pattern without ** should only match in current directory
+        List<FileInfo> infos = backend.globInfo("*.txt", "/");
+        assertEquals(1, infos.size());
+        assertEquals("/test.txt", infos.get(0).getPath());
+    }
+    
+    @Test
+    public void testGrepWithGlob() {
+        backend.write("/test.txt", "hello world");
+        backend.write("/test.md", "hello markdown");
+        backend.write("/file.py", "hello python");
+        
+        Object result = backend.grepRaw("hello", "/", "*.txt");
+        assertTrue(result instanceof List);
+        
+        @SuppressWarnings("unchecked")
+        List<GrepMatch> matches = (List<GrepMatch>) result;
+        assertEquals(1, matches.size());
+        assertEquals("/test.txt", matches.get(0).getPath());
+    }
+    
+    @Test
+    public void testReadAndWriteUnicode() {
+        String unicodeContent = "Hello 世界 🌍 Ñoño";
+        backend.write("/unicode.txt", unicodeContent);
+        
+        String content = backend.read("/unicode.txt");
+        assertTrue(content.contains("世界"));
+        assertTrue(content.contains("🌍"));
+        assertTrue(content.contains("Ñoño"));
+    }
+    
+    @Test
+    public void testEditWithNewlines() {
+        backend.write("/multiline.txt", "line1\nline2\nline3");
+        EditResult result = backend.edit("/multiline.txt", "line2", "modified", false);
+        assertTrue(result.isSuccess());
+        
+        String content = backend.read("/multiline.txt");
+        assertTrue(content.contains("modified"));
+        assertFalse(content.contains("line2"));
+    }
+    
+    @Test
+    public void testDeepNestedDirectories() {
+        backend.write("/a/b/c/d/e/file.txt", "deep content");
+        
+        String content = backend.read("/a/b/c/d/e/file.txt");
+        assertTrue(content.contains("deep content"));
+        
+        List<FileInfo> infos = backend.lsInfo("/a/");
+        assertTrue(infos.stream().anyMatch(fi -> fi.getPath().equals("/a/b/")));
+    }
+    
+    @Test
+    public void testMultipleEdits() {
+        backend.write("/test.txt", "foo bar baz");
+        
+        EditResult result1 = backend.edit("/test.txt", "foo", "FOO", false);
+        assertTrue(result1.isSuccess());
+        
+        EditResult result2 = backend.edit("/test.txt", "bar", "BAR", false);
+        assertTrue(result2.isSuccess());
+        
+        String content = backend.read("/test.txt");
+        assertTrue(content.contains("FOO"));
+        assertTrue(content.contains("BAR"));
+        assertTrue(content.contains("baz"));
+    }
+    
+    @Test
+    public void testGlobWithMultipleExtensions() {
+        backend.write("/file1.txt", "content");
+        backend.write("/file2.md", "content");
+        backend.write("/file3.py", "content");
+        backend.write("/dir/file4.txt", "content");
+        
+        List<FileInfo> txtFiles = backend.globInfo("*.txt", "/");
+        assertEquals(1, txtFiles.size());
+        assertEquals("/file1.txt", txtFiles.get(0).getPath());
+        
+        List<FileInfo> allTxtFiles = backend.globInfo("**/*.txt", "/");
+        assertEquals(2, allTxtFiles.size());
     }
 }
