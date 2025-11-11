@@ -10,6 +10,8 @@ This module provides pluggable backend implementations for storing and managing 
 - **FilesystemBackend**: Reads and writes files directly to the filesystem
 - **CompositeBackend**: Routes operations to different backends based on path prefixes
 
+**Note**: The Python version includes a `StoreBackend` that integrates with LangGraph's BaseStore for persistent, cross-conversation storage. This is not implemented in Java as it requires Python-specific LangGraph framework integration. For persistent storage in Java, use `FilesystemBackend` or implement a custom backend.
+
 ## Features
 
 - Protocol-based interface (`BackendProtocol`) for consistent API across backends
