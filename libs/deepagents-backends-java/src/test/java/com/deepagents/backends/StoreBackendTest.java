@@ -10,6 +10,7 @@ import com.deepagents.backends.store.Store;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -153,5 +154,114 @@ public class StoreBackendTest {
         EditResult editResult = be.edit("/nonexistent.txt", "old", "new", false);
         assertNotNull(editResult.getError());
         assertTrue(editResult.getError().contains("not found"));
+    }
+    
+    @Test
+    public void testStoreBackendEditStringNotFound() {
+        StoreBackend be = createBackend();
+        be.write("/test.txt", "hello world");
+        
+        EditResult editResult = be.edit("/test.txt", "nonexistent", "new", false);
+        assertNotNull(editResult.getError());
+        assertTrue(editResult.getError().contains("String not found"));
+    }
+    
+    @Test
+    public void testStoreBackendEditMultipleOccurrences() {
+        StoreBackend be = createBackend();
+        be.write("/test.txt", "foo bar foo");
+        
+        EditResult result = be.edit("/test.txt", "foo", "baz", false);
+        assertNotNull(result.getError());
+        assertTrue(result.getError().contains("appears 2 times"));
+    }
+    
+    @Test
+    public void testStoreBackendEditReplaceAll() {
+        StoreBackend be = createBackend();
+        be.write("/test.txt", "foo bar foo");
+        
+        EditResult result = be.edit("/test.txt", "foo", "baz", true);
+        assertNull(result.getError());
+        assertEquals(2, result.getOccurrences());
+        
+        String content = be.read("/test.txt");
+        assertTrue(content.contains("baz bar baz"));
+    }
+    
+    @Test
+    public void testStoreBackendGrepWithGlob() {
+        StoreBackend be = createBackend();
+        be.write("/test.txt", "hello world");
+        be.write("/test.md", "hello markdown");
+        be.write("/file.py", "hello python");
+        
+        Object result = be.grepRaw("hello", "/", "*.txt");
+        assertTrue(result instanceof List);
+        
+        @SuppressWarnings("unchecked")
+        List<GrepMatch> matches = (List<GrepMatch>) result;
+        assertEquals(1, matches.size());
+        assertEquals("/test.txt", matches.get(0).getPath());
+    }
+    
+    @Test
+    public void testStoreBackendUnicode() {
+        StoreBackend be = createBackend();
+        String unicodeContent = "Hello 世界 🌍 Ñoño";
+        be.write("/unicode.txt", unicodeContent);
+        
+        String content = be.read("/unicode.txt");
+        assertTrue(content.contains("世界"));
+        assertTrue(content.contains("🌍"));
+        assertTrue(content.contains("Ñoño"));
+    }
+    
+    @Test
+    public void testStoreBackendEmptyContent() {
+        StoreBackend be = createBackend();
+        be.write("/empty.txt", "");
+        
+        String content = be.read("/empty.txt");
+        assertTrue(content.contains("empty contents"));
+    }
+    
+    @Test
+    public void testStoreBackendGrepInvalidRegex() {
+        StoreBackend be = createBackend();
+        be.write("/file.txt", "test content");
+        
+        Object result = be.grepRaw("[", "/", null);
+        assertTrue(result instanceof String);
+        assertTrue(((String) result).contains("Invalid regex"));
+    }
+    
+    @Test
+    public void testStoreBackendGlobNoRecursion() {
+        StoreBackend be = createBackend();
+        be.write("/test.txt", "content");
+        be.write("/dir/test.txt", "content");
+        
+        // Pattern without ** should only match in current directory
+        List<FileInfo> infos = be.globInfo("*.txt", "/");
+        assertEquals(1, infos.size());
+        assertEquals("/test.txt", infos.get(0).getPath());
+    }
+    
+    @Test
+    public void testStoreBackendRecursiveGlob() {
+        StoreBackend be = createBackend();
+        be.write("/test.txt", "content");
+        be.write("/dir/test.md", "content");
+        be.write("/dir/subdir/test.txt", "content");
+        
+        List<FileInfo> infos = be.globInfo("**/*.txt", "/");
+        assertEquals(2, infos.size());
+        
+        Set<String> paths = infos.stream()
+                .map(FileInfo::getPath)
+                .collect(java.util.stream.Collectors.toSet());
+        assertTrue(paths.contains("/test.txt"));
+        assertTrue(paths.contains("/dir/subdir/test.txt"));
     }
 }

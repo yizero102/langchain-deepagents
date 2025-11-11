@@ -246,4 +246,112 @@ public class FilesystemBackendTest {
         assertTrue(paths.contains("/test.txt"));
         assertTrue(paths.contains("/dir/subdir/test.txt"));
     }
+    
+    @Test
+    public void testReadWithOffsetAndLimit() {
+        StringBuilder content = new StringBuilder();
+        for (int i = 1; i <= 100; i++) {
+            content.append("Line ").append(i).append("\n");
+        }
+        backend.write("/test.txt", content.toString());
+        
+        String result = backend.read("/test.txt", 10, 5);
+        assertTrue(result.contains("Line 11"));
+        assertTrue(result.contains("Line 15"));
+        assertFalse(result.contains("Line 10"));
+        assertFalse(result.contains("Line 16"));
+    }
+    
+    @Test
+    public void testEditStringNotFound() {
+        backend.write("/test.txt", "hello world");
+        EditResult result = backend.edit("/test.txt", "nonexistent", "new", false);
+        assertFalse(result.isSuccess());
+        assertTrue(result.getError().contains("String not found"));
+    }
+    
+    @Test
+    public void testEditWithMultipleOccurrences() {
+        backend.write("/test.txt", "foo bar foo");
+        EditResult result = backend.edit("/test.txt", "foo", "baz", false);
+        assertFalse(result.isSuccess());
+        assertTrue(result.getError().contains("appears 2 times"));
+    }
+    
+    @Test
+    public void testEditWithReplaceAll() {
+        backend.write("/test.txt", "foo bar foo");
+        EditResult result = backend.edit("/test.txt", "foo", "baz", true);
+        assertTrue(result.isSuccess());
+        assertEquals(2, result.getOccurrences());
+        
+        String content = backend.read("/test.txt");
+        assertTrue(content.contains("baz bar baz"));
+    }
+    
+    @Test
+    public void testGrepWithGlob() {
+        backend.write("/test.txt", "hello world");
+        backend.write("/test.md", "hello markdown");
+        backend.write("/file.py", "hello python");
+        
+        Object result = backend.grepRaw("hello", "/", "*.txt");
+        assertTrue(result instanceof List);
+        
+        @SuppressWarnings("unchecked")
+        List<GrepMatch> matches = (List<GrepMatch>) result;
+        assertEquals(1, matches.size());
+        assertEquals("/test.txt", matches.get(0).getPath());
+    }
+    
+    @Test
+    public void testUnicodeContent() {
+        String unicodeContent = "Hello 世界 🌍 Ñoño";
+        backend.write("/unicode.txt", unicodeContent);
+        
+        String content = backend.read("/unicode.txt");
+        assertTrue(content.contains("世界"));
+        assertTrue(content.contains("🌍"));
+        assertTrue(content.contains("Ñoño"));
+    }
+    
+    @Test
+    public void testEmptyFile() {
+        backend.write("/empty.txt", "");
+        String content = backend.read("/empty.txt");
+        assertTrue(content.contains("empty contents"));
+    }
+    
+    @Test
+    public void testEditNonExistentFile() {
+        EditResult result = backend.edit("/missing.txt", "old", "new", false);
+        assertFalse(result.isSuccess());
+        assertTrue(result.getError().contains("not found"));
+    }
+    
+    @Test
+    public void testGlobNoRecursion() {
+        backend.write("/test.txt", "content");
+        backend.write("/dir/test.txt", "content");
+        
+        // Pattern without ** should only match in current directory
+        List<FileInfo> infos = backend.globInfo("*.txt", "/");
+        assertEquals(1, infos.size());
+        assertEquals("/test.txt", infos.get(0).getPath());
+    }
+    
+    @Test
+    public void testNormalModeAbsolutePaths() throws IOException {
+        // Test non-virtual mode with absolute paths
+        FilesystemBackend normalBackend = new FilesystemBackend(tempDir, false, 10);
+        
+        Path testFile = tempDir.resolve("test.txt");
+        Files.writeString(testFile, "absolute path test");
+        
+        String content = normalBackend.read(testFile.toString());
+        assertTrue(content.contains("absolute path test"));
+        
+        List<FileInfo> infos = normalBackend.lsInfo(tempDir.toString());
+        assertTrue(infos.stream().anyMatch(fi -> fi.getPath().equals(testFile.toString())));
+    }
 }
