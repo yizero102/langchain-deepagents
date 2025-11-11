@@ -35,13 +35,25 @@ public class CompositeBackend implements BackendProtocol {
     public List<FileInfo> lsInfo(String path) {
         for (Map.Entry<String, BackendProtocol> entry : sortedRoutes) {
             String routePrefix = entry.getKey();
-            if (path.startsWith(routePrefix.substring(0, routePrefix.length() - 1))) {
-                String suffix = path.substring(routePrefix.length());
+            String routePrefixWithoutSlash = routePrefix.substring(0, routePrefix.length() - 1);
+            
+            // Normalize path by removing trailing slash for comparison
+            String normalizedPath = path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
+            
+            if (normalizedPath.equals(routePrefixWithoutSlash) || normalizedPath.startsWith(routePrefix)) {
+                String suffix;
+                if (normalizedPath.equals(routePrefixWithoutSlash)) {
+                    // Path is exactly the route prefix (with or without trailing slash)
+                    suffix = "";
+                } else {
+                    // Path is within the route
+                    suffix = path.substring(routePrefix.length());
+                }
                 String searchPath = suffix.isEmpty() ? "/" : "/" + suffix;
                 List<FileInfo> infos = entry.getValue().lsInfo(searchPath);
                 return infos.stream()
                         .map(fi -> new FileInfo(
-                                routePrefix.substring(0, routePrefix.length() - 1) + fi.getPath(),
+                                routePrefixWithoutSlash + fi.getPath(),
                                 fi.isDir(),
                                 fi.getSize(),
                                 fi.getModifiedAt()

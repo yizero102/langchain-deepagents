@@ -375,7 +375,16 @@ public class FilesystemBackend implements BackendProtocol {
                         }
                         
                         Path relative = resolvedPath.relativize(file);
-                        if (matcher.matches(relative)) {
+                        // Match against relative path
+                        // For patterns like **/*.txt, also try without leading directory if at root
+                        boolean matches = matcher.matches(relative);
+                        if (!matches && cleanPattern.startsWith("**/")) {
+                            // Try matching without the **/ prefix for root-level files
+                            String simplePattern = cleanPattern.substring(3); // Remove "**/
+                            PathMatcher simpleMatcher = FileSystems.getDefault().getPathMatcher("glob:" + simplePattern);
+                            matches = simpleMatcher.matches(relative);
+                        }
+                        if (matches) {
                             String absPath = file.toString();
                             if (!virtualMode) {
                                 results.add(new FileInfo(
