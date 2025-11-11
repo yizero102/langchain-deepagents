@@ -235,7 +235,7 @@ public class BackendUtils {
                 relative = parts[parts.length - 1];
             }
             
-            if (matchesGlob(relative, pattern) || matchesRecursiveGlob(relative, pattern)) {
+            if (matchesGlobPattern(relative, pattern)) {
                 matches.add(entry);
             }
         }
@@ -251,13 +251,32 @@ public class BackendUtils {
                 .collect(Collectors.joining("\n"));
     }
 
-    private static boolean matchesRecursiveGlob(String path, String pattern) {
+    private static boolean matchesGlobPattern(String path, String pattern) {
         if (pattern.contains("**")) {
             String[] patternParts = pattern.split("/");
             String[] pathParts = path.split("/");
             return matchesRecursivePattern(pathParts, 0, patternParts, 0);
         }
-        return matchesGlob(path, pattern);
+        
+        if (!pattern.contains("/") && !path.contains("/")) {
+            return matchesGlob(path, pattern);
+        }
+        
+        if (!pattern.contains("/") && path.contains("/")) {
+            return false;
+        }
+        
+        String[] patternParts = pattern.split("/");
+        String[] pathParts = path.split("/");
+        if (patternParts.length != pathParts.length) {
+            return false;
+        }
+        for (int i = 0; i < patternParts.length; i++) {
+            if (!matchesGlob(pathParts[i], patternParts[i])) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean matchesRecursivePattern(String[] pathParts, int pathIdx, String[] patternParts, int patternIdx) {
