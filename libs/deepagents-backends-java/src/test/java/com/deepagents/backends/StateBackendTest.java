@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -158,5 +159,88 @@ public class StateBackendTest {
         backend.write("/empty.txt", "");
         String content = backend.read("/empty.txt");
         assertTrue(content.contains("empty contents"));
+    }
+    
+    @Test
+    public void testLsNestedDirectories() {
+        Map<String, String> files = new LinkedHashMap<>();
+        files.put("/src/main.py", "main code");
+        files.put("/src/utils/helper.py", "helper code");
+        files.put("/src/utils/common.py", "common code");
+        files.put("/docs/readme.md", "readme");
+        files.put("/docs/api/reference.md", "api reference");
+        files.put("/config.json", "config");
+        
+        for (Map.Entry<String, String> entry : files.entrySet()) {
+            backend.write(entry.getKey(), entry.getValue());
+        }
+        
+        // Test root listing
+        List<FileInfo> rootListing = backend.lsInfo("/");
+        List<String> rootPaths = rootListing.stream()
+                .map(FileInfo::getPath)
+                .collect(Collectors.toList());
+        assertTrue(rootPaths.contains("/config.json"));
+        assertTrue(rootPaths.contains("/src/"));
+        assertTrue(rootPaths.contains("/docs/"));
+        assertFalse(rootPaths.contains("/src/main.py"));
+        assertFalse(rootPaths.contains("/src/utils/helper.py"));
+        
+        // Test src listing
+        List<FileInfo> srcListing = backend.lsInfo("/src/");
+        List<String> srcPaths = srcListing.stream()
+                .map(FileInfo::getPath)
+                .collect(Collectors.toList());
+        assertTrue(srcPaths.contains("/src/main.py"));
+        assertTrue(srcPaths.contains("/src/utils/"));
+        assertFalse(srcPaths.contains("/src/utils/helper.py"));
+        
+        // Test utils listing
+        List<FileInfo> utilsListing = backend.lsInfo("/src/utils/");
+        List<String> utilsPaths = utilsListing.stream()
+                .map(FileInfo::getPath)
+                .collect(Collectors.toList());
+        assertTrue(utilsPaths.contains("/src/utils/helper.py"));
+        assertTrue(utilsPaths.contains("/src/utils/common.py"));
+        assertEquals(2, utilsPaths.size());
+        
+        // Test empty listing
+        List<FileInfo> emptyListing = backend.lsInfo("/nonexistent/");
+        assertTrue(emptyListing.isEmpty());
+    }
+    
+    @Test
+    public void testLsTrailingSlash() {
+        backend.write("/file.txt", "content");
+        backend.write("/dir/nested.txt", "nested");
+        
+        List<FileInfo> listingWithSlash = backend.lsInfo("/");
+        assertEquals(2, listingWithSlash.size());
+        
+        List<String> paths = listingWithSlash.stream()
+                .map(FileInfo::getPath)
+                .collect(Collectors.toList());
+        assertTrue(paths.contains("/file.txt"));
+        assertTrue(paths.contains("/dir/"));
+        
+        List<FileInfo> listingFromDir = backend.lsInfo("/dir/");
+        assertEquals(1, listingFromDir.size());
+        assertEquals("/dir/nested.txt", listingFromDir.get(0).getPath());
+    }
+    
+    @Test
+    public void testGrepInvalidRegex() {
+        backend.write("/file.txt", "test content");
+        
+        Object result = backend.grepRaw("[", "/", null);
+        assertTrue(result instanceof String);
+        assertTrue(((String) result).contains("Invalid regex"));
+    }
+    
+    @Test
+    public void testEditNonExistentFile() {
+        EditResult result = backend.edit("/missing.txt", "old", "new");
+        assertFalse(result.isSuccess());
+        assertTrue(result.getError().contains("not found"));
     }
 }

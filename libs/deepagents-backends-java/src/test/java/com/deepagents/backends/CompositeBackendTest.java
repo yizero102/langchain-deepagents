@@ -139,4 +139,130 @@ public class CompositeBackendTest {
         assertTrue(hasDefault);
         assertTrue(hasMemory);
     }
+    
+    @Test
+    public void testMultipleRoutes() {
+        StateBackend archiveBackend = new StateBackend();
+        StateBackend cacheBackend = new StateBackend();
+        
+        Map<String, BackendProtocol> routes = new HashMap<>();
+        routes.put("/memory/", memoryBackend);
+        routes.put("/archive/", archiveBackend);
+        routes.put("/cache/", cacheBackend);
+        
+        CompositeBackend multiRouteBackend = new CompositeBackend(defaultBackend, routes);
+        
+        // Write to different backends
+        multiRouteBackend.write("/temp.txt", "ephemeral data");
+        multiRouteBackend.write("/memory/important.md", "long-term memory");
+        multiRouteBackend.write("/archive/old.log", "archived log");
+        multiRouteBackend.write("/cache/session.json", "cached session");
+        
+        // Test root listing includes all routes
+        List<FileInfo> rootListing = multiRouteBackend.lsInfo("/");
+        Set<String> paths = rootListing.stream()
+                .map(FileInfo::getPath)
+                .collect(java.util.stream.Collectors.toSet());
+        
+        assertTrue(paths.contains("/temp.txt"));
+        assertTrue(paths.contains("/memory/"));
+        assertTrue(paths.contains("/archive/"));
+        assertTrue(paths.contains("/cache/"));
+        
+        // Test specific route listing
+        List<FileInfo> memListing = multiRouteBackend.lsInfo("/memory/");
+        Set<String> memPaths = memListing.stream()
+                .map(FileInfo::getPath)
+                .collect(java.util.stream.Collectors.toSet());
+        assertTrue(memPaths.contains("/memory/important.md"));
+        assertFalse(memPaths.contains("/temp.txt"));
+        
+        // Test grep across all backends
+        Object allMatches = multiRouteBackend.grepRaw(".", "/", null);
+        assertTrue(allMatches instanceof List);
+        @SuppressWarnings("unchecked")
+        List<GrepMatch> matches = (List<GrepMatch>) allMatches;
+        Set<String> matchPaths = matches.stream()
+                .map(GrepMatch::getPath)
+                .collect(java.util.stream.Collectors.toSet());
+        assertTrue(matchPaths.contains("/temp.txt"));
+        assertTrue(matchPaths.contains("/memory/important.md"));
+        assertTrue(matchPaths.contains("/archive/old.log"));
+        assertTrue(matchPaths.contains("/cache/session.json"));
+        
+        // Test edit in routed backend
+        EditResult editRes = multiRouteBackend.edit("/memory/important.md", "long-term", "persistent", false);
+        assertTrue(editRes.isSuccess());
+        assertEquals(1, editRes.getOccurrences());
+        
+        String updatedContent = multiRouteBackend.read("/memory/important.md");
+        assertTrue(updatedContent.contains("persistent memory"));
+    }
+    
+    @Test
+    public void testLsNestedDirectories() {
+        defaultBackend.write("/temp.txt", "temp");
+        defaultBackend.write("/work/file1.txt", "work file 1");
+        defaultBackend.write("/work/projects/proj1.txt", "project 1");
+        
+        memoryBackend.write("/important.txt", "important");
+        memoryBackend.write("/diary/entry1.txt", "diary entry");
+        
+        // Root listing
+        List<FileInfo> rootListing = compositeBackend.lsInfo("/");
+        List<String> rootPaths = rootListing.stream()
+                .map(FileInfo::getPath)
+                .collect(java.util.stream.Collectors.toList());
+        assertTrue(rootPaths.contains("/temp.txt"));
+        assertTrue(rootPaths.contains("/work/"));
+        assertTrue(rootPaths.contains("/memory/"));
+        assertFalse(rootPaths.contains("/work/file1.txt"));
+        assertFalse(rootPaths.contains("/memory/important.txt"));
+        
+        // Work listing
+        List<FileInfo> workListing = compositeBackend.lsInfo("/work/");
+        List<String> workPaths = workListing.stream()
+                .map(FileInfo::getPath)
+                .collect(java.util.stream.Collectors.toList());
+        assertTrue(workPaths.contains("/work/file1.txt"));
+        assertTrue(workPaths.contains("/work/projects/"));
+        assertFalse(workPaths.contains("/work/projects/proj1.txt"));
+        
+        // Memory listing
+        List<FileInfo> memListing = compositeBackend.lsInfo("/memory/");
+        List<String> memPaths = memListing.stream()
+                .map(FileInfo::getPath)
+                .collect(java.util.stream.Collectors.toList());
+        assertTrue(memPaths.contains("/memory/important.txt"));
+        assertTrue(memPaths.contains("/memory/diary/"));
+        assertFalse(memPaths.contains("/memory/diary/entry1.txt"));
+    }
+    
+    @Test
+    public void testLsTrailingSlash() {
+        defaultBackend.write("/file.txt", "content");
+        memoryBackend.write("/item.txt", "store content");
+        
+        List<FileInfo> listing = compositeBackend.lsInfo("/");
+        List<String> paths = listing.stream()
+                .map(FileInfo::getPath)
+                .collect(java.util.stream.Collectors.toList());
+        assertEquals(paths, paths.stream().sorted().collect(java.util.stream.Collectors.toList()));
+        
+        // Empty listing
+        List<FileInfo> emptyListing = compositeBackend.lsInfo("/memory/nonexistent/");
+        assertTrue(emptyListing.isEmpty());
+        
+        List<FileInfo> emptyListing2 = compositeBackend.lsInfo("/nonexistent/");
+        assertTrue(emptyListing2.isEmpty());
+        
+        // Trailing slash handling
+        List<FileInfo> listing1 = compositeBackend.lsInfo("/memory/");
+        List<FileInfo> listing2 = compositeBackend.lsInfo("/memory");
+        assertEquals(listing1.size(), listing2.size());
+        
+        List<String> paths1 = listing1.stream().map(FileInfo::getPath).collect(java.util.stream.Collectors.toList());
+        List<String> paths2 = listing2.stream().map(FileInfo::getPath).collect(java.util.stream.Collectors.toList());
+        assertEquals(paths1, paths2);
+    }
 }

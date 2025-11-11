@@ -147,4 +147,102 @@ public class FilesystemBackendTest {
                    (result.getError().contains("Path traversal") || 
                     result.getError().contains("outside root")));
     }
+    
+    @Test
+    public void testLsNestedDirectories() throws IOException {
+        Files.createDirectories(tempDir.resolve("src/utils"));
+        Files.createDirectories(tempDir.resolve("docs/api"));
+        
+        backend.write("/config.json", "config");
+        backend.write("/src/main.py", "code");
+        backend.write("/src/utils/helper.py", "utils code");
+        backend.write("/src/utils/common.py", "common utils");
+        backend.write("/docs/readme.md", "documentation");
+        backend.write("/docs/api/reference.md", "api docs");
+        
+        // Test root listing
+        List<FileInfo> rootListing = backend.lsInfo("/");
+        List<String> rootPaths = rootListing.stream()
+                .map(FileInfo::getPath)
+                .collect(java.util.stream.Collectors.toList());
+        assertTrue(rootPaths.contains("/config.json"));
+        assertTrue(rootPaths.contains("/src/"));
+        assertTrue(rootPaths.contains("/docs/"));
+        assertFalse(rootPaths.contains("/src/main.py"));
+        assertFalse(rootPaths.contains("/src/utils/helper.py"));
+        
+        // Test src listing
+        List<FileInfo> srcListing = backend.lsInfo("/src/");
+        List<String> srcPaths = srcListing.stream()
+                .map(FileInfo::getPath)
+                .collect(java.util.stream.Collectors.toList());
+        assertTrue(srcPaths.contains("/src/main.py"));
+        assertTrue(srcPaths.contains("/src/utils/"));
+        assertFalse(srcPaths.contains("/src/utils/helper.py"));
+        
+        // Test utils listing
+        List<FileInfo> utilsListing = backend.lsInfo("/src/utils/");
+        List<String> utilsPaths = utilsListing.stream()
+                .map(FileInfo::getPath)
+                .collect(java.util.stream.Collectors.toList());
+        assertTrue(utilsPaths.contains("/src/utils/helper.py"));
+        assertTrue(utilsPaths.contains("/src/utils/common.py"));
+        assertEquals(2, utilsPaths.size());
+        
+        // Test empty listing
+        List<FileInfo> emptyListing = backend.lsInfo("/nonexistent/");
+        assertTrue(emptyListing.isEmpty());
+    }
+    
+    @Test
+    public void testLsTrailingSlash() {
+        backend.write("/file.txt", "content");
+        backend.write("/dir/nested.txt", "nested");
+        
+        List<FileInfo> listingWithSlash = backend.lsInfo("/");
+        assertTrue(listingWithSlash.size() > 0);
+        
+        List<String> paths = listingWithSlash.stream()
+                .map(FileInfo::getPath)
+                .collect(java.util.stream.Collectors.toList());
+        assertEquals(paths, paths.stream().sorted().collect(java.util.stream.Collectors.toList()));
+        
+        // Test both with and without trailing slash
+        List<FileInfo> listing1 = backend.lsInfo("/dir/");
+        List<FileInfo> listing2 = backend.lsInfo("/dir");
+        assertEquals(listing1.size(), listing2.size());
+        
+        List<String> paths1 = listing1.stream().map(FileInfo::getPath).collect(java.util.stream.Collectors.toList());
+        List<String> paths2 = listing2.stream().map(FileInfo::getPath).collect(java.util.stream.Collectors.toList());
+        assertEquals(paths1, paths2);
+        
+        // Test empty path
+        List<FileInfo> emptyListing = backend.lsInfo("/nonexistent/");
+        assertTrue(emptyListing.isEmpty());
+    }
+    
+    @Test
+    public void testGrepInvalidRegex() {
+        backend.write("/file.txt", "test content");
+        
+        Object result = backend.grepRaw("[", "/", null);
+        assertTrue(result instanceof String);
+        assertTrue(((String) result).contains("Invalid regex"));
+    }
+    
+    @Test
+    public void testRecursiveGlob() {
+        backend.write("/test.txt", "content");
+        backend.write("/dir/test.md", "content");
+        backend.write("/dir/subdir/test.txt", "content");
+        
+        List<FileInfo> infos = backend.globInfo("**/*.txt", "/");
+        assertTrue(infos.size() >= 2);
+        
+        Set<String> paths = infos.stream()
+                .map(FileInfo::getPath)
+                .collect(java.util.stream.Collectors.toSet());
+        assertTrue(paths.contains("/test.txt"));
+        assertTrue(paths.contains("/dir/subdir/test.txt"));
+    }
 }
