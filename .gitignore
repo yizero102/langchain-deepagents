@@ -75,6 +75,14 @@ docs/_build/
 .pybuilder/
 target/
 
+# Java / Maven
+*.class
+*.jar
+*.war
+*.ear
+.mvn/
+mvn.cmd
+
 # Jupyter Notebook
 .ipynb_checkpoints
 
