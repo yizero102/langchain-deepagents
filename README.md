@@ -527,6 +527,105 @@ Both Python and Java implementations are **fully tested** and **production-ready
 - Python: 24/24 tests passing ✅
 - Java: 82/82 tests passing ✅
 
+## FileServer - HTTP API Module
+
+The **FileServer** module exposes all BackendProtocol operations through a standalone HTTP server. It provides RESTful APIs for filesystem operations without any external dependencies.
+
+### Features
+
+- **Zero Dependencies**: Uses only Python standard library
+- **Independent Module**: Can run standalone without DeepAgents
+- **RESTful API**: All operations via HTTP endpoints
+- **Production Ready**: 26 comprehensive tests (100% passing)
+- **CORS Enabled**: Can be accessed from web applications
+- **Unicode Support**: Full support for international characters and emojis
+
+### Quick Start
+
+```bash
+# Start server with default settings
+python -m fileserver.server
+
+# Start with custom directory and port
+python -m fileserver.server /path/to/files 8080
+```
+
+### HTTP API Examples
+
+```bash
+# Write a file
+curl -X POST http://localhost:8080/api/write \
+  -H "Content-Type: application/json" \
+  -d '{"file_path": "test.txt", "content": "Hello World"}'
+
+# Read a file
+curl "http://localhost:8080/api/read?file_path=test.txt"
+
+# Edit a file
+curl -X POST http://localhost:8080/api/edit \
+  -H "Content-Type: application/json" \
+  -d '{"file_path": "test.txt", "old_string": "World", "new_string": "Python"}'
+
+# Search files
+curl "http://localhost:8080/api/grep?pattern=TODO&path=."
+
+# List directory
+curl "http://localhost:8080/api/ls?path=."
+
+# Glob pattern matching
+curl "http://localhost:8080/api/glob?pattern=*.py&path=."
+```
+
+### Python API
+
+```python
+from fileserver import FileServer
+
+# Create and start server
+server = FileServer(root_dir="/data", port=8080)
+server.start()  # Blocks until Ctrl+C
+```
+
+### Available Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| GET | `/api/ls` | List directory contents |
+| GET | `/api/read` | Read file with line numbers |
+| POST | `/api/write` | Create new file |
+| POST | `/api/edit` | Edit file (replace strings) |
+| GET | `/api/grep` | Search files with regex |
+| GET | `/api/glob` | Find files by glob pattern |
+
+### Testing and Documentation
+
+```bash
+cd libs/deepagents-fileserver
+
+# Run all tests
+pytest tests/ -v
+
+# Run comprehensive verification
+./verify_all.sh
+
+# Run demo
+python demo_fileserver.py
+```
+
+### Documentation
+
+- [FileServer README](libs/deepagents-fileserver/README.md) - Complete API documentation
+- [Quick Start Guide](libs/deepagents-fileserver/QUICK_START.md) - Get started in 5 minutes
+- [Implementation Summary](libs/deepagents-fileserver/IMPLEMENTATION_SUMMARY.md) - Technical details
+
+### Why FileServer?
+
+- **Language Agnostic**: Access filesystem operations from any language via HTTP
+- **Microservice Ready**: Deploy as a standalone service
+- **Development Tool**: Test and debug filesystem operations easily
+- **Integration**: Connect DeepAgents with external systems via REST API
+
 ## MCP
 
 The `deepagents` library can be ran with MCP tools. This can be achieved by using the [Langchain MCP Adapter library](https://github.com/langchain-ai/langchain-mcp-adapters).
