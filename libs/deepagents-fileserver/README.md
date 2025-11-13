@@ -21,6 +21,23 @@ An independent HTTP file server that exposes BackendProtocol operations through 
 
 ## Installation
 
+### Option 1: Docker (Recommended) 🐳
+
+The easiest way to run the FileServer is using Docker:
+
+```bash
+# Quick start with Docker Compose
+cd libs/deepagents-fileserver
+docker compose up -d
+
+# View logs to get the auto-generated API key
+docker compose logs -f
+```
+
+See [DOCKER.md](DOCKER.md) for complete Docker documentation.
+
+### Option 2: Python Package
+
 ```bash
 # From the project root
 pip install libs/deepagents-fileserver
@@ -380,6 +397,61 @@ See [FASTAPI_SECURITY_GUIDE.md](FASTAPI_SECURITY_GUIDE.md) for comprehensive sec
   - Restricting access to specific IP ranges
 
 **Recommendation:** Use the FastAPI server for production deployments.
+
+## Docker Deployment 🐳
+
+The FileServer can be easily deployed using Docker for production environments.
+
+### Quick Start with Docker
+
+```bash
+# Using Docker Compose (recommended)
+docker-compose up -d
+
+# Using Docker CLI
+docker build -t deepagents-fileserver .
+docker run -d -p 8080:8080 -v $(pwd)/data:/data deepagents-fileserver
+```
+
+### Configuration Options
+
+**Environment Variables:**
+- `SERVER_TYPE`: Choose `fastapi` (default) or `standard`
+- `PORT`: Server port (default: 8080)
+- `ROOT_DIR`: Root directory for file operations (default: /data)
+- `API_KEY`: Custom API key for FastAPI server (optional, auto-generated if not set)
+
+**Example:**
+```bash
+docker run -d \
+  -p 8080:8080 \
+  -v /your/data:/data \
+  -e SERVER_TYPE=fastapi \
+  -e API_KEY=your-secret-key \
+  deepagents-fileserver
+```
+
+### Features
+
+✅ **Production-Ready:**
+- Multi-stage build for optimized image size (~150MB)
+- Non-root user for security
+- Health checks included
+- Resource limits support
+- Comprehensive logging
+
+✅ **Easy to Use:**
+- Docker Compose configuration included
+- Auto-generated API keys
+- Volume mounting for data persistence
+- Multiple server configurations
+
+See [DOCKER.md](DOCKER.md) for comprehensive Docker documentation including:
+- Production deployment strategies
+- Security best practices
+- Kubernetes integration
+- Troubleshooting guide
+- Performance optimization
 
 ## License
 
