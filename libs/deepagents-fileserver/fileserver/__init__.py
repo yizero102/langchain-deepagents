@@ -6,6 +6,7 @@ accessible via HTTP endpoints.
 """
 
 from fileserver.server import FileServer
+from fileserver.server_fastapi import FastAPIFileServer, create_app
 
-__all__ = ["FileServer"]
-__version__ = "0.1.0"
+__all__ = ["FileServer", "FastAPIFileServer", "create_app"]
+__version__ = "0.2.0"
