@@ -10,14 +10,15 @@ This module provides pluggable backend implementations for storing and managing 
 - **FilesystemBackend**: Reads and writes files directly to the filesystem
 - **StoreBackend**: Persistent storage compatible with LangGraph's BaseStore interface
 - **CompositeBackend**: Routes operations to different backends based on path prefixes
+- **SandboxBackend**: Remote filesystem operations via HTTP API (new!)
 
 ### Synchronization Status
 
 ✅ **Logic**: 100% equivalent to Python version  
-✅ **Tests**: 342% coverage (82 Java tests vs 24 Python tests)  
-✅ **Performance**: 2.7-3.0x faster than Python  
+✅ **Tests**: 450% coverage (108 Java tests vs 24 Python tests)  
+✅ **Performance**: 2.7-3.0x faster than Python (local backends)  
 ✅ **Documentation**: Complete and up-to-date  
-✅ **Production Ready**: All 82 tests passing
+✅ **Production Ready**: All 108 tests passing
 
 ## Features
 
@@ -99,6 +100,23 @@ composite.write("/memory/file.txt", "In memory");
 // Other files go to defaultBackend
 composite.write("/file.txt", "In default");
 ```
+
+### SandboxBackend Example
+
+```java
+// Connect to a remote FileServer
+SandboxBackend backend = new SandboxBackend("http://localhost:8080");
+
+// Or with API key authentication
+SandboxBackend secureBackend = new SandboxBackend("http://localhost:8080", "your-api-key");
+
+// Same operations as other backends, but executed remotely
+backend.write("test.txt", "Remote content");
+String content = backend.read("test.txt");
+List<FileInfo> files = backend.lsInfo(".");
+```
+
+For detailed documentation on SandboxBackend, see [SANDBOX_BACKEND_README.md](SANDBOX_BACKEND_README.md).
 
 ## Protocol Interface
 
