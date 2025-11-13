@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # FastAPI Server (Recommended for Production)
+  fileserver-fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: deepagents-fileserver-fastapi
+    ports:
+      - "8080:8080"
+    volumes:
+      - fileserver-data:/data
+    environment:
+      - FILESERVER_ROOT_DIR=/data
+      - FILESERVER_HOST=0.0.0.0
+      - FILESERVER_PORT=8080
+      - FILESERVER_MODE=fastapi
+      # Optional: Set a custom API key (will be auto-generated if not provided)
+      # - FILESERVER_API_KEY=your-secret-api-key-here
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health').read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  # Standard Server (Simple, No Auth)
+  fileserver-standard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: deepagents-fileserver-standard
+    ports:
+      - "8081:8080"
+    volumes:
+      - fileserver-data:/data
+    environment:
+      - FILESERVER_ROOT_DIR=/data
+      - FILESERVER_HOST=0.0.0.0
+      - FILESERVER_PORT=8080
+      - FILESERVER_MODE=standard
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health').read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    profiles:
+      - standard
+
+volumes:
+  fileserver-data:
+    driver: local

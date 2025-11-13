@@ -19,6 +19,13 @@ An independent HTTP file server that exposes BackendProtocol operations through 
 - **OpenAPI Documentation**: Interactive API docs at `/docs` endpoint
 - **Production Ready**: Built on FastAPI and Uvicorn for high performance
 
+### Docker Support 🐳
+- **Ready-to-Deploy**: Pre-configured Dockerfile and docker-compose.yml
+- **Easy Setup**: Run in seconds with `docker-compose up`
+- **Flexible Configuration**: Environment variables for all settings
+- **Health Checks**: Built-in container health monitoring
+- **See [DOCKER.md](DOCKER.md) for complete Docker deployment guide**
+
 ## Installation
 
 ```bash
@@ -87,6 +94,47 @@ from fileserver import FileServer
 server = FileServer(root_dir="/path/to/root", host="localhost", port=8080)
 server.start()  # Blocks until Ctrl+C
 ```
+
+### Option 3: Docker (Easiest Deployment) 🐳
+
+**Using Docker Compose:**
+```bash
+# Clone or navigate to the fileserver directory
+cd libs/deepagents-fileserver
+
+# Start the FastAPI server
+docker-compose up -d fileserver-fastapi
+
+# View logs to get the auto-generated API key
+docker-compose logs fileserver-fastapi
+
+# Test the server
+curl http://localhost:8080/health
+```
+
+**Using Docker CLI:**
+```bash
+# Build the image
+docker build -t deepagents-fileserver .
+
+# Run the FastAPI server
+docker run -d \
+  --name fileserver \
+  -p 8080:8080 \
+  -v fileserver-data:/data \
+  -e FILESERVER_MODE=fastapi \
+  deepagents-fileserver
+
+# View logs for API key
+docker logs fileserver
+```
+
+**See [DOCKER.md](DOCKER.md) for comprehensive Docker deployment guide including:**
+- Production configurations
+- Reverse proxy setup
+- Data persistence strategies
+- Security best practices
+- Troubleshooting guide
 
 ## API Endpoints
 
