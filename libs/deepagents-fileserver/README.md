@@ -4,11 +4,20 @@ An independent HTTP file server that exposes BackendProtocol operations through 
 
 ## Features
 
+### Standard Server (http.server)
 - **Zero Dependencies**: Uses only Python standard library (no external dependencies)
 - **RESTful API**: All filesystem operations available via HTTP endpoints
 - **Full BackendProtocol Support**: Implements all operations from the DeepAgents BackendProtocol
 - **CORS Enabled**: Can be accessed from web applications
 - **Standalone**: Can run independently without DeepAgents installation
+
+### FastAPI Server (Recommended for Production) 🆕
+- **API Key Authentication**: Secure endpoints with configurable API keys
+- **Rate Limiting**: Built-in rate limiting to prevent abuse
+- **Path Traversal Prevention**: Automatic validation prevents directory traversal attacks
+- **Input Validation**: Pydantic models ensure all inputs are validated
+- **OpenAPI Documentation**: Interactive API docs at `/docs` endpoint
+- **Production Ready**: Built on FastAPI and Uvicorn for high performance
 
 ## Installation
 
@@ -19,8 +28,46 @@ pip install libs/deepagents-fileserver
 
 ## Quick Start
 
-### Running the Server
+### Option 1: FastAPI Server (Recommended) 🆕
 
+**Running from Command Line:**
+```bash
+# Run with auto-generated API key
+python -m fileserver.server_fastapi
+
+# Run with custom root directory
+python -m fileserver.server_fastapi /path/to/root
+
+# Run with custom root directory and port
+python -m fileserver.server_fastapi /path/to/root 9000
+```
+
+**Python API:**
+```python
+from fileserver import FastAPIFileServer
+
+# Create and start server with security features
+server = FastAPIFileServer(
+    root_dir="/path/to/root",
+    host="localhost",
+    port=8080,
+    api_key="your-secret-key",  # Or None for auto-generated
+    enable_rate_limiting=True,
+    rate_limit_requests=100,
+    rate_limit_window=60
+)
+server.start()  # Blocks until Ctrl+C
+```
+
+**Key Features:**
+- API Key is auto-generated if not provided (printed to console)
+- Include API key in `X-API-Key` header for all requests (except `/health`)
+- Interactive API documentation available at `http://localhost:8080/docs`
+- See [FASTAPI_SECURITY_GUIDE.md](FASTAPI_SECURITY_GUIDE.md) for detailed security documentation
+
+### Option 2: Standard Server (Simple, No Dependencies)
+
+**Running from Command Line:**
 ```bash
 # Run with default settings (current directory, port 8080)
 python -m fileserver.server
@@ -32,8 +79,7 @@ python -m fileserver.server /path/to/root
 python -m fileserver.server /path/to/root 9000
 ```
 
-### Python API
-
+**Python API:**
 ```python
 from fileserver import FileServer
 
@@ -310,14 +356,30 @@ The FileServer module is designed to be completely independent:
 
 ## Security Considerations
 
-- The server does not implement authentication by default
+### FastAPI Server (Recommended for Production)
+
+✅ **Security Features Implemented:**
+- **API Key Authentication**: All endpoints (except `/health`) require authentication
+- **Rate Limiting**: Configurable rate limiting to prevent abuse
+- **Path Traversal Prevention**: Automatic validation prevents directory traversal attacks
+- **Input Validation**: Pydantic models validate all request data
+- **HTTPS Support**: Can be deployed with TLS/SSL via Uvicorn or reverse proxy
+
+See [FASTAPI_SECURITY_GUIDE.md](FASTAPI_SECURITY_GUIDE.md) for comprehensive security documentation.
+
+### Standard Server
+
+⚠️ **Security Warnings:**
+- The standard server does not implement authentication by default
 - All file operations are performed with the permissions of the user running the server
 - Path traversal attempts are not explicitly prevented (use with caution)
-- For production use, consider:
-  - Adding authentication/authorization
-  - Implementing rate limiting
+- For production use with the standard server, consider:
+  - Adding authentication/authorization at the network level
+  - Implementing rate limiting via reverse proxy
   - Running behind a reverse proxy (nginx, Apache)
   - Restricting access to specific IP ranges
+
+**Recommendation:** Use the FastAPI server for production deployments.
 
 ## License
 
