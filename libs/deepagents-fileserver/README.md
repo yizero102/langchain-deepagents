@@ -2,6 +2,20 @@
 
 An independent HTTP file server that exposes BackendProtocol operations through RESTful APIs.
 
+## 🐳 Docker Support
+
+The FileServer is fully containerized and ready for Docker deployment. See [DOCKER.md](DOCKER.md) for complete documentation.
+
+**Quick Start with Docker:**
+```bash
+# Using docker-compose (recommended)
+docker-compose up -d
+
+# Using Docker CLI
+docker build -t deepagents-fileserver .
+docker run -d -p 8080:8080 -v $(pwd)/data:/data deepagents-fileserver
+```
+
 ## Features
 
 ### Standard Server (http.server)
