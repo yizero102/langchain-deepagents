@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # FastAPI FileServer (recommended for production)
+  fileserver-fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: deepagents-fileserver-fastapi
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount a local directory for file operations
+      # Change ./data to your desired directory
+      - ./data:/data
+    environment:
+      # Optional: Set a custom API key (otherwise auto-generated)
+      # - FILESERVER_API_KEY=your-secret-api-key-here
+      # Optional: Configure rate limiting
+      - FILESERVER_RATE_LIMIT_REQUESTS=100
+      - FILESERVER_RATE_LIMIT_WINDOW=60
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health').read()"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  # Standard FileServer (simple, no authentication)
+  fileserver-standard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: deepagents-fileserver-standard
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./data:/data
+    command: ["fileserver.server", "/data", "8080"]
+    restart: unless-stopped
+    profiles:
+      # Only start when explicitly requested
+      # docker-compose --profile standard up
+      - standard
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health').read()"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  # Optional: Use named volume instead of bind mount
+  fileserver-data:
+    driver: local
